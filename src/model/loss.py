@@ -9,17 +9,21 @@ class Loss(nn.Module):
         self.CE_loss = nn.BCEWithLogitsLoss()
         self.l1_loss = nn.L1Loss()
 
-    def forward(self, predictions, targets, G_loss=False):
-        if G_loss:
-            # predictions is a list of [discriminator out on generated img, generated img]
-            # targets is ground truth
-            true_target = torch.ones_like(predictions[0], dtype=torch.float32,
-                                          device=predictions[0].device)
-            return self.CE_loss(predictions[0], true_target), \
-                   self.l1_loss(predictions[1], targets)
+    def G_loss(self, discriminator_out, generated_img,
+               ground_truth):
+        true_target = torch.ones_like(discriminator_out, dtype=torch.float32,
+                                      device=discriminator_out.device)
+        return self.CE_loss(discriminator_out, true_target), \
+                   self.l1_loss(generated_img, ground_truth)
+
+    def D_loss(self, discriminator_out, mark):
+        if mark:
+            target = torch.ones_like(discriminator_out, dtype=torch.float32,
+                                      device=discriminator_out.device)
         else:
-            # target is True, if predictions is not generated
-            # and False otherwise
-            targets = torch.full_like(predictions, float(targets),
-                                      dtype=torch.float32, device=predictions.device)
-            return self.CE_loss(predictions, targets)
+            target = torch.zeros_like(discriminator_out, dtype=torch.float32,
+                                     device=discriminator_out.device)
+        return self.CE_loss(discriminator_out, target)
+
+    def forward(self):
+        raise NotImplementedError()
