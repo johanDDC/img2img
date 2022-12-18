@@ -13,16 +13,17 @@ class Unet(nn.Module):
         self.encoder = Encoder(n_layers, in_channels, inner_channels, start_num_filters)
         self.decoder = Decoder(n_layers - 1, inner_channels, start_num_filters)
         self.head = nn.Sequential(
-            nn.ReLU(),
-            nn.ConvTranspose2d(2 * start_num_filters, out_channels, kernel_size=(4, 4), stride=(2, 2), padding=(1, 1)),
+            nn.ReLU(inplace=True),
+            nn.ConvTranspose2d(2 * start_num_filters, out_channels,
+                               kernel_size=(4, 4), stride=(2, 2), padding=(1, 1), bias=False),
             nn.Tanh()
         )
+        self.apply(self.__init_weights)
 
     @staticmethod
     def __init_weights(layer):
         if isinstance(layer, (nn.Conv2d, nn.ConvTranspose2d)):
             init.normal_(layer.weight, 0, 0.02)
-            init.constant_(layer.bias, 0)
 
     def forward(self, img):
         encoder_out, residuals = self.encoder(img)

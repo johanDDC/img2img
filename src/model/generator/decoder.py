@@ -5,16 +5,12 @@ import torch.nn as nn
 class UpsamplingUnetBlock(nn.Module):
     def __init__(self, in_channels, out_channels, dropout_prob=0.5):
         super().__init__()
-        self.relu = nn.ReLU()
-        self.conv = nn.ConvTranspose2d(in_channels, out_channels,
-                                       kernel_size=(4, 4), stride=(2, 2), padding=(1, 1))
-        self.norm = nn.InstanceNorm2d(out_channels)
-        self.dropout = nn.Dropout(dropout_prob) if dropout_prob > 0 else nn.Identity()
         self.layer = nn.Sequential(
-            self.relu,
-            self.conv,
-            self.norm,
-            self.dropout
+            nn.ReLU(inplace=True),
+            nn.ConvTranspose2d(in_channels, out_channels,
+                               kernel_size=(4, 4), stride=(2, 2), padding=(1, 1), bias=False),
+            nn.BatchNorm2d(out_channels),
+            nn.Dropout(dropout_prob, inplace=True) if dropout_prob > 0 else nn.Identity()
         )
 
     def forward(self, x):
@@ -29,7 +25,7 @@ class Decoder(nn.Module):
         top_layers = nn.ModuleList()
         curr_channels = inner_channels
         self.layers.append(
-            UpsamplingUnetBlock(inner_channels, inner_channels, 0)
+            UpsamplingUnetBlock(inner_channels, inner_channels)
         )
         while inner_channels > out_channels:
             top_layers.append(
@@ -49,4 +45,3 @@ class Decoder(nn.Module):
             input = torch.cat([residuals[-i], x], dim=1)
             x = self.layers[i](input)
         return torch.cat([residuals[0], x], dim=1)
-            # input = torch.cat([residuals[self.n_layers - i - 2], x], dim=1)

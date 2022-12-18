@@ -3,20 +3,17 @@ import torch.nn as nn
 import abc
 
 class DownsamplingUnetBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, norm=True):
+    def __init__(self, in_channels, out_channels, norm=True, relu=True):
         super().__init__()
-        self.relu = nn.LeakyReLU(0.2)
-        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=(4, 4),
-                              stride=2, padding=1)
-        self.norm = nn.InstanceNorm2d(out_channels) if norm else nn.Identity()
         self.layer = nn.Sequential(
-            self.relu,
-            self.conv,
+            nn.LeakyReLU(0.2, inplace=True) if relu else nn.Identity(),
+            nn.Conv2d(in_channels, out_channels, kernel_size=(4, 4),
+                      stride=(2, 2), padding=(1, 1), bias=False),
+            nn.BatchNorm2d(out_channels) if norm else nn.Identity()
         )
 
     def forward(self, x):
-        x = self.layer(x)
-        return self.norm(x)
+        return self.layer(x)
 
 class Encoder(nn.Module):
     def __init__(self, n_layers, input_channels, inner_channels, start_num_filters):
@@ -24,12 +21,19 @@ class Encoder(nn.Module):
         self.n_layers = n_layers
         curr_channels = start_num_filters
         self.layers = nn.ModuleList()
+        self.layers.append(
+            DownsamplingUnetBlock(input_channels, curr_channels, norm=False, relu=False)
+        )
+        input_channels = curr_channels
+        curr_channels *= 2
+
         while curr_channels <= inner_channels:
             self.layers.append(
                 DownsamplingUnetBlock(input_channels, curr_channels)
             )
             input_channels = curr_channels
             curr_channels *= 2
+
         for i in range(n_layers - len(self.layers) - 1):
             self.layers.append(
                 DownsamplingUnetBlock(inner_channels, inner_channels)
